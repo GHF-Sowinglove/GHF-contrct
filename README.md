@@ -1,20 +1,20 @@
 # GHF-contrct
 
 Rule analysis
-
-Three generations 25% share rewards 12% - 8% - 5%.
-
-
-15% lottery pool
+===
+* Three generations 25% share rewards 12% - 8% - 5%.
 
 
-12% Global Weighted Dividend
+* 15% lottery pool
 
 
-8% contribution
+* 12% Global Weighted Dividend
 
 
-1%-5% Miner Award
+* 8% contribution
 
 
-42% enter static pool and insurance pool
+* 1%-5% Miner Award
+
+
+* 42% enter static pool and insurance pool
