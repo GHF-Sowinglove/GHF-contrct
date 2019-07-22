@@ -1,6 +1,6 @@
 ![blizzardgame](ghf.png)
 # GHF-contrct
-*The first game for blockchain, see https://ghf-contract.github.io
+The first game for blockchain, see https://ghf-contract.github.io
 
 Rule analysis
 ===
