@@ -1,6 +1,6 @@
 ![blizzardgame](ghf.png)
 # GHF-contrct
-
+The first game for blockchain, see https://ghf-contract.github.io
 Rule analysis
 ===
 * Three generations 25% share rewards 12% - 8% - 5%.
