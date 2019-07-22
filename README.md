@@ -42,8 +42,7 @@ function inc()
 }
 
 ```
-* Random number generation
-* Random seed acquisition
+
 
 ## Static income calculation
 ```Solidity
@@ -62,7 +61,7 @@ function calc(address _pAddress, uint256 _canIncome, uint256 _day, uint256 _prob
         return _canIncome < _income ? _canIncome : _income;
 }
 ```
-* Calculate the expected return and the actual earned income based on the current latest participation, number of days, and income that can be received
+
 
 ## Win the prize in the small prize pool
 ```Solidity
