@@ -1,3 +1,4 @@
+![blizzardgame](ghf.png)
 # GHF-contrct
 
 Rule analysis
