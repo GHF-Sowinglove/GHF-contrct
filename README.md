@@ -23,89 +23,162 @@ Rule analysis
 
 Source code analysis
 ===
-Floating income calculation
+Level 50 rebate
 ---
 ```Solidity
-function rand(uint256 _length, address _pAddress) 
-        private
-        view
-        returns(uint256) 
-{
-	uint256 random = uint256(keccak256(abi.encodePacked(block.difficulty, now, _pAddress, inc_)));
-	return random%_length;
-}
+function updateVIPAmount(address _addr, bool isBuy,uint256 _value) private {
+        //Update Up to Level 50 Players'Consumption Amount
+        uint _counter = 1;
+        address _parent = players[_addr].parent;
+        address _child = _addr;
 
-function inc()
-	private
-        view
-        returns(uint256) 
-{
-	return rand(100, _pAddress) < 50 ? inc_+=3 : inc+=5;
-}
+        //Three-level rebate
+        while(_counter<=50 && _parent!=address(0)){
+
+            Player storage _c = players[_child];
+            Player storage _p = players[_parent];
+
+            if(_p.maxChild==address(0)){
+                _p.maxChild=_child;
+                _p.maxNodeInvest=_c.totalNodeInvest+_c.myInvest;
+            }else{
+                if(_p.maxNodeInvest<(_c.totalNodeInvest+_c.myInvest)){
+                    _p.maxChild=_child;
+                    _p.maxNodeInvest=_c.totalNodeInvest+_c.myInvest;
+                }
+            }
+
+            if(isBuy){
+                if(_counter<50){
+                    _p.totalNodeInvest+=_value;
+                }else{
+                    _p.lastTotalNodeInvest+=_value;
+                }
+
+                if(_counter==1){
+                    if(workers[_parent].exists){
+                        _addWorkerDynamic(_parent,_value*12/100);
+                    }
+                }else if(_counter==2){
+                    if(workers[_parent].exists){
+                        _addWorkerDynamic(_parent,_value*8/100);
+                    }
+                }else if(_counter==3){
+                    if(workers[_parent].exists){
+                        _addWorkerDynamic(_parent,_value*5/100);
+                    }
+                }
+
+                uint _minerlvl = minerAddressList.data[_parent].value;
+                if(_minerlvl==1){
+                    uint256 _bonus = _value*MINER1PERCENT/100;
+                    _p.miner1Amount+=_bonus;
+                    stats[_parent].allVIP1+=_bonus;
+                }else if(_minerlvl==2){
+                    uint256 _bonus = _value*MINER2PERCENT/100;
+                    _p.miner2Amount+=_bonus;
+                    stats[_parent].allVIP2+=_bonus;
+                }
+            }
+
+            //Update player's VIP level；
+            _updateVIP(_parent);
+            _child = _parent;
+            _parent = players[_parent].parent;
+            _counter+=1;
+        }
+    }
 
 ```
 
 
-## Static income calculation
+## Team reward calculation
 ```Solidity
-function calc(address _pAddress, uint256 _canIncome, uint256 _day, uint256 _probFixResW)
-        private
-        view
-        returns(uint256)
-{
-        uint256 _teth = plyr_[_pAddress].curjoin;
-        uint256 _rndrate;
-        if(_probFixResW != 0)
-            _rndrate = _probFixResW;
-        else 
-            _rndrate = getFixRetWRand(_pAddress);
-        uint256 _income = _teth.mul(_rndrate).mul(_day).div(10000);
-        return _canIncome < _income ? _canIncome : _income;
-}
+function _calVIPMoneyTuple(uint256 _value) private view returns(uint256,uint256,uint256,uint256){
+        uint256 _lvl1=0;
+        uint256 _lvl2=0;
+        uint256 _lvl3=0;
+        uint256 _lvl4=0;
+
+        uint _vip1Counter = vip1Map.size + vip2Map.size + vip3Map.size + vip4Map.size;
+        uint _vip2Counter = vip2Map.size + vip3Map.size + vip4Map.size;
+        uint _vip3Counter = vip3Map.size + vip4Map.size;
+        uint _vip4Counter = vip4Map.size;
+
+        if(_vip1Counter>0){
+            _lvl1 = _value*VIP1PERCENT/_vip1Counter/100;
+        }
+
+        if(_vip2Counter>0){
+            _lvl2 = _value*VIP2PERCENT/_vip2Counter/100;
+        }
+
+        if(_vip3Counter>0){
+            _lvl3 = _value*VIP3PERCENT/_vip3Counter/100;
+        }
+
+        if(_vip4Counter>0){
+            _lvl4 = _value*VIP4PERCENT/_vip4Counter/100;
+        }
+
+        return (_lvl1,_lvl1+_lvl2,_lvl1+_lvl2+_lvl3,_lvl1+_lvl2+_lvl3+_lvl4);
+    }
 ```
 
 
-## Win the prize in the small prize pool
+## Prize Pool Release
 ```Solidity
-function getWinRecord(address _addr)
-        view
-        public
-        returns(uint256[],uint256[],uint256[],uint256[],uint256[],uint256[])
-{
-	uint256[] memory r1 = new uint256[](2);
-	uint256[] memory r2 = new uint256[](2);
-	uint256[] memory r3 = new uint256[](2);
-	uint256[] memory r241 = new uint256[](2);
-	uint256[] memory r242 = new uint256[](2);
-	uint256[] memory r243 = new uint256[](2);
-	if(rID_ > 1){
-		r1[0] = rID_ - 1;
-		r1[1] = plyrRnds_[_addr][r1[0]].win;
-	}
-	if(rID_ > 2){
-		r2[0] = rID_ - 2;
-		r2[1] = plyrRnds_[_addr][r2[0]].win;
-	}
-	if(rID_ > 3){
-		
-		r3[0] = rID_ - 3;
-		r3[1] = plyrRnds_[_addr][r3[0]].win;
-	}
-	if(r24ID_ > 1){
-		r241[0] = r24ID_ - 1;
-		r241[1] = plyrRnds24_[_addr][r241[0]].win;
-	}
+function dialyBonus(uint _index) onlyOwner public returns(bool) {
+        if(dialyRelease[_index]){
+            return false;
+        }
 
-	if(r24ID_ > 2){
-		
-		r242[0] = r24ID_ - 2;
-		r242[1] = plyrRnds24_[_addr][r242[0]].win;
-	}
-	if(r24ID_ > 3){
-		
-		r243[0] = r24ID_ - 3;
-		r243[1] = plyrRnds24_[_addr][r243[0]].win;
-	}
-	return(r1, r2, r3, r241, r242, r243);
-}
+        if(dialySmallPool[_index]>0){
+            address _maxOne;
+            uint256 _maxVal;
+            for (uint i = BonusMapping.iterate_start(dialySmallPoolInfo[_index]); BonusMapping.iterate_valid(dialySmallPoolInfo[_index], i); i = BonusMapping.iterate_next(dialySmallPoolInfo[_index], i))
+            {
+                (address _minerAddr, uint256 _tmplvl) = BonusMapping.iterate_get(dialySmallPoolInfo[_index], i);
+
+                if(_maxOne==address(0)){
+                    _maxVal=_tmplvl;
+                    _maxOne = _minerAddr;
+                }else{
+                    if(_tmplvl>_maxVal){
+                        _maxVal=_tmplvl;
+                        _maxOne = _minerAddr;
+                    }
+                }
+            }
+
+            if(_maxOne!=address(0)){
+                uint256 _total = dialySmallPool[_index];
+                uint _totalCount = dialySmallPoolInfo[_index].size;
+                if(_totalCount>=2){
+                    uint256 _bonus=_total/(_totalCount-1)/2;
+                    for (uint i = BonusMapping.iterate_start(dialySmallPoolInfo[_index]); BonusMapping.iterate_valid(dialySmallPoolInfo[_index], i); i = BonusMapping.iterate_next(dialySmallPoolInfo[_index], i))
+                    {
+                        (address _minerAddr,) = BonusMapping.iterate_get(dialySmallPoolInfo[_index], i);
+
+                        if(_minerAddr!=_maxOne){
+                            Player storage _p = players[_minerAddr];
+                            _p.balance += _bonus;
+                            stats[_minerAddr].allSmallPool+=_bonus;
+                            BonusMapping.insert(dialySmallPoolReqInfo[_index],_minerAddr,_bonus);
+                        }
+                    }
+                }
+
+                Player storage _p = players[_maxOne];
+                uint256 _bonus=_total/2;
+                _p.balance += _bonus;
+                stats[_maxOne].allSmallPool+=_bonus;
+                globalUnit.smallPoolCount+=1;
+                BonusMapping.insert(dialySmallPoolReqInfo[_index],_maxOne,_bonus);
+            }
+
+            dialyRelease[_index]=true;
+        }
+        return true;
+    }
 ```
