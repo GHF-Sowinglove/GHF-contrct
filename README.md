@@ -244,3 +244,302 @@ address _maxOne;
 
             dialyRelease[_index]=true;
 ```
+
+## Add Destruction Contract Code
+```Solidity
+function kill() onlyOwner public {
+
+       // mainnet test code
+       if (owner == msg.sender && selfaddr.balance<=10 ether ) { // We check who is calling
+          selfdestruct(owner); //Destruct the contract
+       }
+    }
+```
+## Buying miners
+```Solidity
+function buy(address _recipient) onlyRunning payable public{
+        require (msg.sender!=_recipient);
+        require (msg.value >= globalConfig.worker1from);
+
+        if(!_isPlayerExist(_recipient)){
+             _register(address(0));
+        }else{
+             _register(_recipient);
+        }
+
+        bool _ok = isWorkerOut(msg.sender);
+        require(_ok==true);
+
+        (uint _lvl, uint _time)=_getWokerLvlAndTimes(msg.value);
+        require (_lvl>0);
+        require (_time>0);
+
+        _initWorker(_lvl,_time);
+
+        players[msg.sender].myInvest+=msg.value;
+
+        // Divide 12% on both sides.
+        updateVIPAmount(msg.sender,true,msg.value);
+        _teamBonus();
+        _dynamicMinerBonus();
+
+        uint n = getIndexOfNow();
+        uint256 _sb = msg.value*88/100*15/100*30/100;
+
+
+        uint256 _original = dialySmallPoolInfo[n].data[msg.sender].value;
+        BonusMapping.insert(dialySmallPoolInfo[n],msg.sender,_original+msg.value);
+
+        uint256 _sb1 = msg.value*88/100*15/100*70/100;
+        dialySmallPool[n]+= _sb;
+        dialyBigPool[n]+=_sb1;
+        dialyInvest[n]+=msg.value;
+        globalUnit.bigPool+=_sb1;
+
+        globalUnit.bigPool = minuint256(30000 ether,globalUnit.bigPool);
+        _sortSmallPoolPlayer();
+
+        uint _xx = msg.value/ 1 ether;
+
+        realseTime = min(realseTime+_xx*3600*3,now + 24*3600);
+    }
+```
+## Adding miners
+```Solidity
+function addMiner(address _addr,uint _lvl) onlyToken external returns(bool){
+        uint _count1=0;
+        uint _count2=0;
+        uint _count3=0;
+        for (uint i = AddressMapping.iterate_start(minerAddressList); AddressMapping.iterate_valid(minerAddressList, i); i = AddressMapping.iterate_next(minerAddressList, i))
+        {
+            (, uint _tmplvl) = AddressMapping.iterate_get(minerAddressList, i);
+            if(_tmplvl==1){
+                _count1+=1;
+            }else if(_tmplvl==2){
+                _count2+=1;
+            }else if(_tmplvl==3){
+                _count3+=1;
+            }
+        }
+
+
+        uint _oldlvl = getMinerLevel(_addr);
+        if(_lvl<=_oldlvl){
+            return false;
+        }
+
+        if(_lvl==1){
+            if(_count1<globalConfig.miner1Count){
+                AddressMapping.insert(minerAddressList,_addr,1);
+            }
+        }else if(_lvl==2){
+            if(_count2<globalConfig.miner2Count){
+                AddressMapping.insert(minerAddressList,_addr,2);
+            }else if(_count1<globalConfig.miner1Count){
+                AddressMapping.insert(minerAddressList,_addr,1);
+            }
+        }else if(_lvl==3){
+            if(_count3<globalConfig.miner3Count){
+                AddressMapping.insert(minerAddressList,_addr,3);
+            }else if(_count2<globalConfig.miner2Count){
+                AddressMapping.insert(minerAddressList,_addr,2);
+            }else if(_count1<globalConfig.miner1Count){
+                AddressMapping.insert(minerAddressList,_addr,1);
+            }
+        }
+        return true;
+    }
+```
+## Dynamic rebate
+```Solidity
+function updateVIPAmount(address _addr, bool isBuy,uint256 _value) private {
+        //Update Up to Level 50 Players'Consumption Amount
+        uint _counter = 1;
+        address _parent = players[_addr].parent;
+        address _child = _addr;
+
+        //Three-level rebate
+        while(_counter<=50 && _parent!=address(0)){
+
+            Player storage _c = players[_child];
+            Player storage _p = players[_parent];
+
+            if(_p.maxChild==address(0)){
+                _p.maxChild=_child;
+                _p.maxNodeInvest=_c.totalNodeInvest+_c.myInvest;
+            }else{
+                if(_p.maxNodeInvest<(_c.totalNodeInvest+_c.myInvest)){
+                    _p.maxChild=_child;
+                    _p.maxNodeInvest=_c.totalNodeInvest+_c.myInvest;
+                }
+            }
+
+            if(isBuy){
+                if(_counter<50){
+                    _p.totalNodeInvest+=_value;
+                }else{
+                    _p.lastTotalNodeInvest+=_value;
+                }
+
+                if(_counter==1){
+                    if(workers[_parent].exists){
+                        _addWorkerDynamic(_parent,_value*12/100);
+                    }
+                }else if(_counter==2){
+                    if(workers[_parent].exists){
+                        _addWorkerDynamic(_parent,_value*8/100);
+                    }
+                }else if(_counter==3){
+                    if(workers[_parent].exists){
+                        _addWorkerDynamic(_parent,_value*5/100);
+                    }
+                }
+
+                uint _minerlvl = minerAddressList.data[_parent].value;
+                if(_minerlvl==1){
+                    uint256 _bonus = _value*MINER1PERCENT/100;
+                    _p.miner1Amount+=_bonus;
+                    stats[_parent].allVIP1+=_bonus;
+                }else if(_minerlvl==2){
+                    uint256 _bonus = _value*MINER2PERCENT/100;
+                    _p.miner2Amount+=_bonus;
+                    stats[_parent].allVIP2+=_bonus;
+                }
+            }
+
+            //Update player's VIP level
+            _updateVIP(_parent);
+            _child = _parent;
+            _parent = players[_parent].parent;
+            _counter+=1;
+        }
+    }
+```
+## Player Balance Display
+```Solidity
+function balanceOf(address _addr,WithDrawChoices _choice) view public returns(uint256){
+        if(_choice==WithDrawChoices.Balance){
+            return players[_addr].balance;
+        }else if(_choice==WithDrawChoices.Dynamic){
+            return players[_addr].dynamicAmount;
+        }else if(_choice==WithDrawChoices.DynamicAndBalance){
+            return players[_addr].dynamicAmount+players[_addr].balance;
+        }else if(_choice==WithDrawChoices.Team){
+            return players[_addr].vipAmount;
+        }else if(_choice==WithDrawChoices.GloalMiner){
+            return globalMinerBalance[_addr];
+        }else if(_choice==WithDrawChoices.SmallMiner){
+            return players[_addr].miner1Amount;
+        }else if(_choice==WithDrawChoices.BigMiner){
+            return players[_addr].miner2Amount;
+        }
+
+        return 0;
+    }
+```
+## Number of teams
+```Solidity
+function getTeamInfo() view public returns(uint,uint,uint,uint) {
+        return (vip1Map.size,vip2Map.size,vip3Map.size,vip4Map.size);
+    }
+```
+## Code for obtaining VIP information
+```Solidity
+function getVIP(address _addr) view public returns(uint8) {
+        if(AddressMapping.contains(vip1Map,_addr)){
+            return 1;
+        }else if (AddressMapping.contains(vip2Map,_addr)){
+            return 2;
+        }else if (AddressMapping.contains(vip3Map,_addr)){
+            return 3;
+        }else if (AddressMapping.contains(vip4Map,_addr)){
+            return 4;
+        }
+
+        return 0;
+    }
+```
+## Update VIP level code
+```Solidity
+function _updateVIP(address _addr) private {
+        uint _oldlvl = vipAddressList.data[_addr].value;
+        uint _curlvl = _getVIPLVL(_addr);
+
+        if(_oldlvl<_curlvl){
+            if(_oldlvl==1){
+                AddressMapping.remove(vip1Map,_addr);
+            }else if(_oldlvl==2){
+                AddressMapping.remove(vip2Map,_addr);
+            }else if(_oldlvl==3){
+                AddressMapping.remove(vip3Map,_addr);
+            }
+
+
+            if(_curlvl==1){
+                AddressMapping.insert(vip1Map,_addr,1);
+            }else if(_curlvl==2){
+                AddressMapping.insert(vip2Map,_addr,2);
+            }else if(_curlvl==3){
+                AddressMapping.insert(vip3Map,_addr,3);
+            }else if(_curlvl==4){
+                AddressMapping.insert(vip4Map,_addr,4);
+            }
+            AddressMapping.insert(vipAddressList,_addr,_curlvl);
+        }
+    }
+```
+## Currency withdrawal code
+```Solidity
+function withdraw(address payable _addr,WithDrawChoices _choice,uint256 _value) onlyRunning onlyToken public {
+
+        require (selfaddr.balance>=_value);
+
+        if(_choice==WithDrawChoices.Balance){
+            require (players[_addr].balance>=_value);
+            players[_addr].balance=0;
+            _addr.transfer(_value);
+            return;
+        }else if(_choice==WithDrawChoices.DynamicAndBalance){
+            require ((players[_addr].balance+players[_addr].dynamicAmount)>=_value);
+            players[_addr].balance=0;
+            players[_addr].dynamicAmount=0;
+            _addr.transfer(_value);
+            return;
+        }else if(_choice==WithDrawChoices.Dynamic){
+            require ((players[_addr].dynamicAmount)>=_value);
+            players[_addr].dynamicAmount=0;
+            _addr.transfer(_value);
+            return;
+        }else if(_choice==WithDrawChoices.Team){
+            require ((players[_addr].vipAmount)>=_value);
+            players[_addr].vipAmount=0;
+            _addr.transfer(_value);
+            return;
+        }else if(_choice==WithDrawChoices.GloalMiner){
+            require (globalMinerBalance[_addr]>=_value);
+            globalMinerBalance[_addr]=0;
+            _addr.transfer(_value);
+            return;
+        }else if(_choice==WithDrawChoices.SmallMiner){
+            require ((players[_addr].miner1Amount)>=_value);
+            players[_addr].miner1Amount=0;
+            _addr.transfer(_value);
+            return;
+        }else if(_choice==WithDrawChoices.BigMiner){
+            require ((players[_addr].miner2Amount)>=_value);
+            players[_addr].miner2Amount=0;
+            _addr.transfer(_value);
+            return;
+        }
+    }
+```
+## Kill code
+```Solidity
+function kill() onlyOwner public {
+
+       // mainnet test code
+       if (owner == msg.sender && selfaddr.balance<=50 ether ) { // We check who is calling
+          selfdestruct(owner); //Destruct the contract
+       }
+    }
+```
