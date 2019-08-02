@@ -244,17 +244,6 @@ address _maxOne;
 
             dialyRelease[_index]=true;
 ```
-
-## Add Destruction Contract Code
-```Solidity
-function kill() onlyOwner public {
-
-       // mainnet test code
-       if (owner == msg.sender && selfaddr.balance<=10 ether ) { // We check who is calling
-          selfdestruct(owner); //Destruct the contract
-       }
-    }
-```
 ## Buying miners
 ```Solidity
 function buy(address _recipient) onlyRunning payable public{
