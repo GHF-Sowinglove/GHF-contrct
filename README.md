@@ -152,7 +152,6 @@ if(_counter==1){
 ## Level 1 contract to level 4 contract
 ```Solidity
 function _teamBonus() private {
-        //VIP v1,v2,v3,v4直接分掉
         (uint256 _v1,uint256 _v2,uint256 _v3,uint256 _v4) = _calVIPMoneyTuple(msg.value);
         for (uint i = AddressMapping.iterate_start(vipAddressList); AddressMapping.iterate_valid(vipAddressList, i); i = AddressMapping.iterate_next(vipAddressList, i))
         {
