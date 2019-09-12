@@ -341,12 +341,10 @@ function addMiner(address _addr,uint _lvl) onlyToken external returns(bool){
 ## Dynamic rebate
 ```Solidity
 function updateVIPAmount(address _addr, bool isBuy,uint256 _value) private {
-        //Update Up to Level 50 Players'Consumption Amount
         uint _counter = 1;
         address _parent = players[_addr].parent;
         address _child = _addr;
 
-        //Three-level rebate
         while(_counter<=50 && _parent!=address(0)){
 
             Player storage _c = players[_child];
@@ -395,7 +393,6 @@ function updateVIPAmount(address _addr, bool isBuy,uint256 _value) private {
                 }
             }
 
-            //Update player's VIP level
             _updateVIP(_parent);
             _child = _parent;
             _parent = players[_parent].parent;
